@@ -65,6 +65,18 @@ def sample_points(mask, num_samples):
     sampled_points = np.array(list(zip(x_indices[chosen_indices], y_indices[chosen_indices])), dtype=np.float32)
     return sampled_points
 
+def total_frames_firstlight(meta_data):
+    header_size = 0  # Update if there is a header size
+    img_size_bytes = meta_data['height'] * meta_data['width'] * 2  # 2 bytes per pixel
+
+    # Open the file and calculate the total file size
+    with open(meta_data['filename_abs'], 'rb') as f:
+        f.seek(0, 2)  # Move the cursor to the end of the file
+        total_size = f.tell()  # Total size of the file
+
+    # Calculate the total number of frames
+    num_frames = (total_size - header_size) / img_size_bytes
+    return int(num_frames)
 
 def open_frame_firstlight(meta_data, index):
     header_size=0

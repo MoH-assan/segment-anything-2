@@ -53,19 +53,19 @@ raw_video_dir = "/mnt/md126/users/mohamed/projects/AM/Data/RAW/ByDay/20240712/CR
 masks_directory = "/mnt/md126/users/mohamed/projects/AM/Data/RAW/ByDay/20240801/20240801gt_set_5/20240801gt_set_5/Masks"
 raw_video_dir = "/mnt/md126/users/mohamed/projects/AM/Data/RAW/ByDay/20240801/20240713_20_00_01082024_145636.raw"
 
-# ################
+# # ################
 
 ################
 masks_directory = "/mnt/md126/users/mohamed/projects/AM/Data/RAW/ByDay/20240611/20240604_13_00/CREDgt_set_1/CREDgt_set_1/Masks"
 raw_video_dir = "/mnt/md126/users/mohamed/projects/AM/Data/RAW/ByDay/20240611/20240604_13_00/20240604_13_00_11062024_135808.raw"
-################
-# masks_directory = "/mnt/md126/users/mohamed/projects/AM/Data/RAW/ByDay/20240626/20240626_03_00/CREDgt_set_2/Masks"
-# raw_video_dir = "/mnt/md126/users/mohamed/projects/AM/Data/RAW/ByDay/20240626/20240626_03_00/20240626_03_00_26062024_155807.raw"
+###############
+masks_directory = "/mnt/md126/users/mohamed/projects/AM/Data/RAW/ByDay/20240626/20240626_03_00/CREDgt_set_2/Masks"
+raw_video_dir = "/mnt/md126/users/mohamed/projects/AM/Data/RAW/ByDay/20240626/20240626_03_00/20240626_03_00_26062024_155807.raw"
 
-# ###############
-# masks_directory = "/mnt/md126/users/mohamed/projects/AM/Data/RAW/ByDay/20240711/20240708_07_02/CREDgt_set_3_v2/Mask"
-# raw_video_dir = "/mnt/md126/users/mohamed/projects/AM/Data/RAW/ByDay/20240711/20240708_07_02/20240708_07_02_11072024_175349.raw"
-# ###############
+###############
+masks_directory = "/mnt/md126/users/mohamed/projects/AM/Data/RAW/ByDay/20240711/20240708_07_02/CREDgt_set_3_v2/Mask"
+raw_video_dir = "/mnt/md126/users/mohamed/projects/AM/Data/RAW/ByDay/20240711/20240708_07_02/20240708_07_02_11072024_175349.raw"
+###############
 
 
 # Temporary directory to save reordered frames
@@ -85,8 +85,8 @@ flood_masks = sort_and_filter_images(masks_directory, "_c1")   # Sort and filter
 voids_masks = sort_and_filter_images(masks_directory, "_c2")   # Sort and filter the images
 masks_frames = [int(name.split('_f_')[1].split('_')[0]) for name in flood_masks]
 
-
-slected_mask_index = 5 # the index is the order of the mask in the list of masks xinyue has labeled.
+shutil.rmtree(temp_dir, ignore_errors=True)  # Remove the directory if it already exists
+# slected_mask_index = 5 # the index is the order of the mask in the list of masks xinyue has labeled.
 for slected_mask_index in range(len(masks_frames)):
     mask_frame = masks_frames[slected_mask_index] # index based camera frame number
     flood_mask_path = flood_masks[slected_mask_index]
@@ -119,7 +119,7 @@ for slected_mask_index in range(len(masks_frames)):
         'model_cfg': model_cfg,
         'fill_hole_area':fill_hole_area,
     }
-
+    image_meta_data = {'filename_abs': raw_video_dir, 'height': 512, 'width': 640}
     # shutil.rmtree(temp_dir, ignore_errors=True)  # Remove the directory if it already exists
     shutil.rmtree(sam_temp_dir, ignore_errors=True)
     os.makedirs(temp_dir, exist_ok=True) 
@@ -132,23 +132,21 @@ for slected_mask_index in range(len(masks_frames)):
 
 
     frames_indices = [ mask_frame ]
-
+    total_frames = total_frames_firstlight(image_meta_data)
     for i in range(num_frames):
-        frames_indices.append(mask_frame + i*skiprate) # index based camera frame number
+        frame_to_add = mask_frame + i*skiprate
+        if frame_to_add >= total_frames:
+            continue
+        else:
+            frames_indices.append(frame_to_add) # index based camera frame number
     frames_indices = list(set(frames_indices)) 
     frames_indices.sort()
     mask_index = frames_indices.index(mask_frame) # sam index
-    image_meta_data = {'filename_abs': raw_video_dir, 'height': 512, 'width': 640}
+    
     mask_frame_array = open_frame_firstlight(image_meta_data, mask_frame)['img']
     pixel_wise_diff_list = []
-    missing_frames = []
     for i in frames_indices: # index based camera frame number
-        try:
-            frame = open_frame_firstlight(image_meta_data, i)
-        except:
-            print(f"Frame {i} not found")
-            missing_frames.append(i)
-            continue
+        frame = open_frame_firstlight(image_meta_data, i)
         img_array = frame['img']
         pixel_wise_diff = np.linalg.norm(img_array - mask_frame_array)
         pixel_wise_diff_list.append(pixel_wise_diff)
@@ -312,10 +310,7 @@ for slected_mask_index in range(len(masks_frames)):
     plt.close("all")
     frame_metrics['file_name'] = {}
     for out_frame_idx in range(0, len(frame_names), 1):
-        frame_number = frames_indices[out_frame_idx]
-        if frame_number in missing_frames:
-            continue
-        
+        frame_number = frames_indices[out_frame_idx]        
         # check if the frame is already exported 
         previous_masks_same_frame = [int(f.split('_')[-1].split('.')[0]) for f in os.listdir(sam_results_dir) if f.startswith(f"masks_{frame_number}")]
         if len(previous_masks_same_frame) > 0:
@@ -326,7 +321,6 @@ for slected_mask_index in range(len(masks_frames)):
         mask_counter_str = str(mask_counter).zfill(max_digits)
         frame_number_str = str(frame_number).zfill(max_digits)
         frame_metrics['file_name'][out_frame_idx] = f"{frame_number_str}_{mask_counter_str}"
-            # find all frames that has 
         # Overlay the segmentation mask
         plt.figure(figsize=(fig_width, fig_height), dpi=vis_dpi)
         plt.imshow(Image.open(os.path.join(sam_temp_dir, frame_names[out_frame_idx])), cmap='gray')
