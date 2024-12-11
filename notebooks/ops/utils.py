@@ -40,7 +40,7 @@ def sort_and_filter_images(directory, keyword):
     # Scan all the JPEG frame names in the directory
     frame_names = [
         p for p in os.listdir(directory)
-        if os.path.splitext(p)[-1].lower() in [".jpg", ".jpeg"]
+        if os.path.splitext(p)[-1].lower() in [".jpg", ".jpeg",'png']
     ]
 
     # Filter to include only images that contain the keyword
